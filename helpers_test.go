@@ -107,6 +107,8 @@ func (a *cfApp) Push() {
 }
 
 func (a *cfApp) Scale(numInstances int) {
+	// For testing only -- print out the orgs to see if our org disappeared
+	Eventually(cf.Cf("orgs")).Should(gexec.Exit(0))
 	Eventually(cf.Cf("target", "-o", a.orgName, "-s", a.spaceName)).Should(gexec.Exit(0))
 	Eventually(cf.Cf("scale", a.appName, "-i", strconv.Itoa(numInstances))).Should(gexec.Exit(0))
 	Eventually(func() int {
