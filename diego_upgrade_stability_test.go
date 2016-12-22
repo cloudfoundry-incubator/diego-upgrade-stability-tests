@@ -26,6 +26,7 @@ var _ = Describe("Upgrade Stability Tests", func() {
 		By("Deploying V0")
 		By("Deleting existing deployments")
 		boshCmd("", "delete deployment cf-warden", "")
+		boshCmd("", "delete deployment cf-warden-api", "")
 		boshCmd("", "delete deployment cf-warden-diego-database", "")
 		boshCmd("", "delete deployment cf-warden-diego-brain-and-pals", "")
 		boshCmd("", "delete deployment cf-warden-diego-cell1 --force", "")
@@ -38,6 +39,7 @@ var _ = Describe("Upgrade Stability Tests", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Eventually(sess, COMMAND_TIMEOUT).Should(Exit())
 		Expect(sess).NotTo(Say("cf-warden"))
+		Expect(sess).NotTo(Say("cf-warden-api"))
 		Expect(sess).NotTo(Say("cf-warden-diego-brain-and-pals"))
 		Expect(sess).NotTo(Say("cf-warden-diego-cell1"))
 		Expect(sess).NotTo(Say("cf-warden-diego-cell2"))
@@ -84,6 +86,9 @@ var _ = Describe("Upgrade Stability Tests", func() {
 
 		By("Deploying CF")
 		boshCmd("manifests/cf.yml", "deploy", "Deployed 'cf-warden'")
+
+		By("Deploying Cloud Controller")
+		boshCmd("manifests/cf-api.yml", "deploy", "Deployed 'cf-warden-api'")
 
 		if config.UseSQLV0 {
 			By("Deploying MySQL")
@@ -205,6 +210,9 @@ var _ = Describe("Upgrade Stability Tests", func() {
 		// UPGRADE D2
 		By("Upgrading Brain and Pals")
 		boshCmd("manifests/brain-and-pals.yml", "deploy", "Deployed 'cf-warden-diego-brain-and-pals'")
+
+		By("Upgrading the Cloud Controller")
+		boshCmd("manifests/cf-api.yml", "deploy", "Deployed 'cf-warden-api'")
 
 		// START D4
 		By("Deploying Cell 2")

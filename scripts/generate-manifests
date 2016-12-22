@@ -145,7 +145,12 @@ pushd $CF_RELEASE_DIR > /dev/null
     ${CURRENT_DIR}/stubs/add_uaa_saml_certs.yml \
     ${CF_RELEASE_VERSION_STUB}
 
-  spiff merge bosh-lite/deployments/cf.yml > $OUTPUT_DIR/cf.yml
+  spiff merge bosh-lite/deployments/cf.yml ${CURRENT_DIR}/cf/no-api.yml > $OUTPUT_DIR/cf.yml
+
+  ${CURRENT_DIR}/scripts/remove_static_ips.rb bosh-lite/deployments/cf.yml > $OUTPUT_DIR/temp-cf-api.yml
+  spiff merge $OUTPUT_DIR/temp-cf-api.yml ${CURRENT_DIR}/cf/api-only.yml > $OUTPUT_DIR/cf-api.yml
+  rm $OUTPUT_DIR/temp-cf-api.yml
+
   # mysql-release requires cf.yml to exist in
   # `workspace/cf-release/deployments/cf.yml'. `workspace/cf-release' could be
   # different from $CF_RELEASE_DIR if we are deploying V0

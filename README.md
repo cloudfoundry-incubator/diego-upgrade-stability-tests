@@ -10,17 +10,14 @@ This test suite exercises the upgrade path from the stable CF/Diego configuratio
 
 ```bash
 # Legacy Releases
-bosh upload release https://bosh.io/d/github.com/cloudfoundry/cf-release?v=224
-bosh upload release https://bosh.io/d/github.com/cloudfoundry/diego-release?v=0.1440.0
-bosh upload release https://bosh.io/d/github.com/cloudfoundry-incubator/garden-linux-release?v=0.307.0
+bosh upload release https://bosh.io/d/github.com/cloudfoundry/cf-release?v=247
+bosh upload release https://bosh.io/d/github.com/cloudfoundry/diego-release?v=1.0.0
+bosh upload release https://bosh.io/d/github.com/cloudfoundry-incubator/garden-runc-release?v=1.0.0
+bosh upload release https://bosh.io/d/github.com/cloudfoundry/cflinuxfs2-rootfs-release?v=1.40.0
 
 # Current Releases
-bosh upload release https://bosh.io/d/github.com/cloudfoundry-incubator/etcd-release
 bosh upload release https://bosh.io/d/github.com/cloudfoundry/garden-runc-release
 bosh upload release https://bosh.io/d/github.com/cloudfoundry/cflinuxfs2-rootfs-release
-
-# Optional Releases
-bosh upload release https://bosh.io/d/github.com/cloudfoundry/cf-mysql-release
 ```
 
 ### Checkout the correct version of legacy releases
@@ -30,19 +27,20 @@ The desired versions of each release should be checked out.
 
 ```bash
 cd ~/workspace/cf-release-v0
-git checkout v220
-git submodule update --init --recursive src/loggregator # Need manifest generation templates for LAMB
+git checkout v247
+
 cd ~/workspace/diego-release-v0
-git checkout 0.1434.0
+git checkout v1.0.0
 ```
 
 ### Upload the necessary V-prime releases to your bosh-lite
 
 ```bash
 cd ~/workspace/cf-release
-git checkout runtime-passed
+git checkout release-candidate
 ./scripts/update
 bosh -n --parallel 10 create release --force && bosh upload release
+
 cd ~/workspace/diego-release
 git checkout develop
 ./scripts/update
