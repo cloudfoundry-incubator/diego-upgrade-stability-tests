@@ -26,6 +26,7 @@ var _ = Describe("Upgrade Stability Tests", func() {
 		By("Deploying V0")
 		By("Deleting existing deployments")
 		boshCmd("", "delete deployment cf-warden", "")
+		boshCmd("", "delete deployment cf-warden-api", "")
 		boshCmd("", "delete deployment cf-warden-diego-database", "")
 		boshCmd("", "delete deployment cf-warden-diego-brain-and-pals", "")
 		boshCmd("", "delete deployment cf-warden-diego-cell1 --force", "")
@@ -38,6 +39,7 @@ var _ = Describe("Upgrade Stability Tests", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Eventually(sess, COMMAND_TIMEOUT).Should(Exit())
 		Expect(sess).NotTo(Say("cf-warden"))
+		Expect(sess).NotTo(Say("cf-warden-api"))
 		Expect(sess).NotTo(Say("cf-warden-diego-brain-and-pals"))
 		Expect(sess).NotTo(Say("cf-warden-diego-cell1"))
 		Expect(sess).NotTo(Say("cf-warden-diego-cell2"))
@@ -84,6 +86,9 @@ var _ = Describe("Upgrade Stability Tests", func() {
 
 		By("Deploying CF")
 		boshCmd("manifests/cf.yml", "deploy", "Deployed 'cf-warden'")
+
+		By("Deploying Cloud Controller")
+		boshCmd("manifests/cf-api.yml", "deploy", "Deployed 'cf-warden-api'")
 
 		if config.UseSQLV0 {
 			By("Deploying MySQL")
@@ -199,10 +204,15 @@ var _ = Describe("Upgrade Stability Tests", func() {
 		pollerApp.Scale(2)
 		pollerApp.Scale(1)
 
+		// Upgrade the Cloud Controller before the brain and pals. This is because
+		// the Cloud Controller is replacing the cc bridge.
 		// Rolling the Brain, but turning off the new cells and turning back on
 		// the old cells to test when everything on diego has rolled except the cells.
 		// ************************************************************ //
 		// UPGRADE D2
+		By("Upgrading the Cloud Controller")
+		boshCmd("manifests/cf-api.yml", "deploy", "Deployed 'cf-warden-api'")
+
 		By("Upgrading Brain and Pals")
 		boshCmd("manifests/brain-and-pals.yml", "deploy", "Deployed 'cf-warden-diego-brain-and-pals'")
 

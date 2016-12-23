@@ -140,12 +140,14 @@ pushd $CF_RELEASE_DIR > /dev/null
     ${CURRENT_DIR}/misc-stubs/diego-default.yml \
     ${AWS_STUBS_DIR}/dusts/blobstore.yml \
     ${AWS_STUBS_DIR}/aws-keys.yml \
+    ${CURRENT_DIR}/cf/no-api.yml \
     ${CURRENT_DIR}/stubs/disable_reuse_compilation_vms.yml \
     ${CURRENT_DIR}/stubs/deploy_postgres_serially.yml \
     ${CURRENT_DIR}/stubs/add_uaa_saml_certs.yml \
     ${CF_RELEASE_VERSION_STUB}
 
   spiff merge bosh-lite/deployments/cf.yml > $OUTPUT_DIR/cf.yml
+
   # mysql-release requires cf.yml to exist in
   # `workspace/cf-release/deployments/cf.yml'. `workspace/cf-release' could be
   # different from $CF_RELEASE_DIR if we are deploying V0
@@ -153,6 +155,20 @@ pushd $CF_RELEASE_DIR > /dev/null
       mkdir -p ../cf-release/bosh-lite/deployments
       cp -f $OUTPUT_DIR/cf.yml ../cf-release/bosh-lite/deployments/cf.yml
   fi
+
+  BOSH_RELEASES_DIR=$PWD/.. ./scripts/generate-bosh-lite-dev-manifest \
+    ${CURRENT_DIR}/misc-stubs/diego-default.yml \
+    ${AWS_STUBS_DIR}/dusts/blobstore.yml \
+    ${AWS_STUBS_DIR}/aws-keys.yml \
+    ${CURRENT_DIR}/cf/api-only.yml \
+    ${CURRENT_DIR}/stubs/disable_reuse_compilation_vms.yml \
+    ${CURRENT_DIR}/stubs/deploy_postgres_serially.yml \
+    ${CURRENT_DIR}/stubs/add_uaa_saml_certs.yml \
+    ${CF_RELEASE_VERSION_STUB}
+
+  spiff merge bosh-lite/deployments/cf.yml > $OUTPUT_DIR/cf-api.yml
+
+  ${CURRENT_DIR}/scripts/add_cf_properties_to_api_manifest.rb $OUTPUT_DIR/cf.yml $OUTPUT_DIR/cf-api.yml
 popd > /dev/null
 
 pushd $DIEGO_RELEASE_DIR > /dev/null
