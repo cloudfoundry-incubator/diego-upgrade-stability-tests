@@ -21,8 +21,15 @@ import (
 	"testing"
 )
 
+const (
+	diegoGAVersion            = "v1.0.0"
+	diegoLocketLocalREVersion = "v1.25.2"
+)
+
 var (
 	ComponentMakerV0, ComponentMakerV1 world.ComponentMaker
+
+	upgrader Upgrader
 
 	bbsClient        bbs.InternalClient
 	bbsServiceClient serviceclient.ServiceClient
@@ -61,6 +68,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	return payload
 }, func(payload []byte) {
 	var artifacts map[string]world.BuiltArtifacts
+	diegoV0Version := os.Getenv("DIEGO_VERSION_V0")
 
 	err := json.Unmarshal(payload, &artifacts)
 	Expect(err).NotTo(HaveOccurred())
@@ -86,7 +94,17 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		SQL:                 fmt.Sprintf("%sdiego_%d", dbBaseConnectionString, config.GinkgoConfig.ParallelNode),
 	}
 
-	ComponentMakerV0 = world.MakeV0ComponentMaker("fixtures/certs/", artifacts["old"], addresses)
+	switch diegoV0Version {
+	case diegoGAVersion:
+		ComponentMakerV0 = world.MakeV0ComponentMaker("fixtures/certs/", artifacts["old"], addresses)
+		upgrader = NewGAUpgrader()
+	case diegoLocketLocalREVersion:
+		ComponentMakerV0 = world.MakeComponentMaker("fixtures/certs/", artifacts["old"], addresses)
+		upgrader = NewLocketLocalREUpgrader()
+	default:
+		Expect(diegoV0Version).To(Or(Equal(diegoGAVersion), Equal(diegoLocketLocalREVersion)))
+	}
+
 	ComponentMakerV1 = world.MakeComponentMaker("fixtures/certs/", artifacts["new"], addresses)
 
 	ComponentMakerV1.GrootFSInitStore()
@@ -142,6 +160,10 @@ func compileTestedExecutablesV0() world.BuiltExecutables {
 	builtExecutables["bbs"] = lazyBuild(binariesPath, os.Getenv("BBS_GOPATH_V0"), "code.cloudfoundry.org/bbs/cmd/bbs", "-race")
 	builtExecutables["route-emitter"] = lazyBuild(binariesPath, os.Getenv("ROUTE_EMITTER_GOPATH_V0"), "code.cloudfoundry.org/route-emitter/cmd/route-emitter", "-race")
 	builtExecutables["ssh-proxy"] = lazyBuild(binariesPath, os.Getenv("SSH_PROXY_GOPATH_V0"), "code.cloudfoundry.org/diego-ssh/cmd/ssh-proxy", "-race")
+
+	if os.Getenv("DIEGO_VERSION_V0") == "v1.25.2" {
+		builtExecutables["locket"] = lazyBuild(binariesPath, os.Getenv("GOPATH_V0"), "code.cloudfoundry.org/locket/cmd/locket", "-race")
+	}
 
 	os.Setenv("CGO_ENABLED", "0")
 	builtExecutables["sshd"] = lazyBuild(binariesPath, os.Getenv("SSHD_GOPATH_V0"), "code.cloudfoundry.org/diego-ssh/cmd/sshd", "-a", "-installsuffix", "static")
