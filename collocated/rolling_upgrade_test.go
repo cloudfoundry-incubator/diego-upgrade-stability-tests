@@ -13,6 +13,7 @@ import (
 	auctioneerconfig "code.cloudfoundry.org/auctioneer/cmd/auctioneer/config"
 	bbsconfig "code.cloudfoundry.org/bbs/cmd/bbs/config"
 	"code.cloudfoundry.org/bbs/models"
+	"code.cloudfoundry.org/durationjson"
 	"code.cloudfoundry.org/inigo/fixtures"
 	"code.cloudfoundry.org/inigo/helpers"
 	"code.cloudfoundry.org/lager"
@@ -148,7 +149,7 @@ loop:
 	}
 }
 
-func upgradeRep(idx int, process *ifrit.Process) {
+func upgradeRep(idx int, process *ifrit.Process, modifyFuncs ...func(*repconfig.RepConfig)) {
 	msg := fmt.Sprintf("Upgrading cell %d", idx)
 	By(msg)
 
@@ -163,7 +164,7 @@ func upgradeRep(idx int, process *ifrit.Process) {
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	EventuallyWithOffset(1, (*process).Wait()).Should(Receive())
 
-	*process = ginkgomon.Invoke(ComponentMakerV1.RepN(idx))
+	*process = ginkgomon.Invoke(ComponentMakerV1.RepN(idx, modifyFuncs...))
 }
 
 type Upgrader interface {
@@ -247,9 +248,11 @@ func (lre *diegoLocketLocalREUpgrader) StartUp() {
 	lre.auctioneer = ginkgomon.Invoke(ComponentMakerV0.Auctioneer())
 
 	lre.rep0 = ginkgomon.Invoke(ComponentMakerV0.RepN(0, func(cfg *repconfig.RepConfig) {
+		cfg.EvacuationTimeout = durationjson.Duration(10 * time.Second)
 		lre.cell0ID = cfg.CellID
 	}))
 	lre.rep1 = ginkgomon.Invoke(ComponentMakerV0.RepN(1, func(cfg *repconfig.RepConfig) {
+		cfg.EvacuationTimeout = durationjson.Duration(10 * time.Second)
 		lre.cell1ID = cfg.CellID
 	}))
 
@@ -294,14 +297,18 @@ func (lre *diegoLocketLocalREUpgrader) RollingUpgrade() {
 	ginkgomon.Interrupt(lre.auctioneer, 5*time.Second)
 	lre.auctioneer = ginkgomon.Invoke(ComponentMakerV1.Auctioneer())
 
-	upgradeRep(0, &lre.rep0)
+	setEvacuationTimeout := func(cfg *repconfig.RepConfig) {
+		cfg.EvacuationTimeout = durationjson.Duration(10 * time.Second)
+	}
+
+	upgradeRep(0, &lre.rep0, setEvacuationTimeout)
 	By("Upgrading Route Emitter 0")
 	ginkgomon.Interrupt(lre.routeEmitter0, 5*time.Second)
 	lre.routeEmitter0 = ginkgomon.Invoke(ComponentMakerV1.RouteEmitterN(0, func(cfg *routeemitterconfig.RouteEmitterConfig) {
 		cfg.CellID = lre.cell0ID
 	}))
 
-	upgradeRep(1, &lre.rep1)
+	upgradeRep(1, &lre.rep1, setEvacuationTimeout)
 	By("Upgrading Route Emitter 1")
 	ginkgomon.Interrupt(lre.routeEmitter1, 5*time.Second)
 	lre.routeEmitter1 = ginkgomon.Invoke(ComponentMakerV1.RouteEmitterN(1, func(cfg *routeemitterconfig.RouteEmitterConfig) {
