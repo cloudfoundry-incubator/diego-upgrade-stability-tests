@@ -28,6 +28,8 @@ import (
 	"github.com/tedsuo/ifrit/grouper"
 )
 
+var nRetries = 1
+
 var _ = FDescribe("RollingUpgrade", func() {
 
 	setupPlumbing := func() ifrit.Process {
@@ -137,7 +139,7 @@ loop:
 			return nil
 
 		default:
-			_, status, err := helpers.ResponseBodyAndStatusCodeFromHost(c.routerAddr, c.host)
+			status, err := c.pollWithRetries()
 			if err != nil {
 				return err
 			}
@@ -149,6 +151,26 @@ loop:
 	}
 }
 
+func (c *poller) pollWithRetries() (int, error) {
+	var status int
+	var err error
+
+	for i := 0; i < nRetries; i++ {
+		_, status, err = helpers.ResponseBodyAndStatusCodeFromHost(c.routerAddr, c.host)
+
+		switch status {
+		case http.StatusOK:
+			break
+		case http.StatusNotFound:
+			continue
+		default:
+			break
+		}
+	}
+
+	return status, err
+}
+
 func upgradeRep(idx int, process *ifrit.Process, modifyFuncs ...func(*repconfig.RepConfig)) {
 	msg := fmt.Sprintf("Upgrading cell %d", idx)
 	By(msg)
@@ -158,7 +180,7 @@ func upgradeRep(idx int, process *ifrit.Process, modifyFuncs ...func(*repconfig.
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	port = port + 10*idx // TODO: this is a hack based on offsetPort in components.go
 
-	By(fmt.Sprintf("evcuating cell%d", idx))
+	By(fmt.Sprintf("evacuating cell%d", idx))
 	addr := fmt.Sprintf("http://%s:%d/evacuate", host, port)
 	_, err = http.Post(addr, "", nil)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
@@ -302,16 +324,16 @@ func (lre *diegoLocketLocalREUpgrader) RollingUpgrade() {
 	}
 
 	upgradeRep(0, &lre.rep0, setEvacuationTimeout)
-	By("Upgrading Route Emitter 0")
-	ginkgomon.Interrupt(lre.routeEmitter0, 5*time.Second)
-	lre.routeEmitter0 = ginkgomon.Invoke(ComponentMakerV1.RouteEmitterN(0, func(cfg *routeemitterconfig.RouteEmitterConfig) {
-		cfg.CellID = lre.cell0ID
-	}))
+	// By("Upgrading Route Emitter 0")
+	// ginkgomon.Interrupt(lre.routeEmitter0, 5*time.Second)
+	// lre.routeEmitter0 = ginkgomon.Invoke(ComponentMakerV1.RouteEmitterN(0, func(cfg *routeemitterconfig.RouteEmitterConfig) {
+	// 	cfg.CellID = lre.cell0ID
+	// }))
 
 	upgradeRep(1, &lre.rep1, setEvacuationTimeout)
-	By("Upgrading Route Emitter 1")
-	ginkgomon.Interrupt(lre.routeEmitter1, 5*time.Second)
-	lre.routeEmitter1 = ginkgomon.Invoke(ComponentMakerV1.RouteEmitterN(1, func(cfg *routeemitterconfig.RouteEmitterConfig) {
-		cfg.CellID = lre.cell1ID
-	}))
+	// By("Upgrading Route Emitter 1")
+	// ginkgomon.Interrupt(lre.routeEmitter1, 5*time.Second)
+	// lre.routeEmitter1 = ginkgomon.Invoke(ComponentMakerV1.RouteEmitterN(1, func(cfg *routeemitterconfig.RouteEmitterConfig) {
+	// 	cfg.CellID = lre.cell1ID
+	// }))
 }
