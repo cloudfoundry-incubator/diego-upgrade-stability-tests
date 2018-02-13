@@ -92,8 +92,9 @@ var _ = Describe("UpgradeVizzini", func() {
 					rep,
 					routeEmitter,
 					sshProxy,
-					plumbing,
 				)
+
+				helpers.StopProcesses(plumbing)
 
 				Expect(destroyContainerErrors).To(
 					BeEmpty(),
@@ -103,7 +104,7 @@ var _ = Describe("UpgradeVizzini", func() {
 			})
 
 			Context("v0 configuration", func() {
-				It("runs vizzini successfully", func() {
+				FIt("runs vizzini successfully", func() {
 					runVizziniTests(bbsClientGoPathEnvVar, securityGroupV0Tests)
 				})
 			})
